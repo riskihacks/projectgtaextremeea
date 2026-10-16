@@ -6,10 +6,10 @@ Based on https://github.com/willfaust/Madeira (see LICENSE and upstream notices)
 
 Changes:
 - Dedicated mode is enabled by GTADedicatedMode in Info.plist.
-- On initial appearance, selects Games/GTAExtremeIndonesia/gta_sa.exe.
+- Opens a branded riskidr999 main menu with a JIT prompt and Instagram link. Play selects Games/GTAExtremeIndonesia/gta_sa.exe only after JIT is ready.
 - Registers a 32-bit game profile at 800x600, touch controls enabled, DirectInput controller mode.
 - Uses upstream launchLibraryEntry -> jitReadyForLaunch -> startLibraryEntry; does not bypass StikDebug or fabricate JIT success.
-- Attempts automatic launch once per app process. Errors leave the existing library available for retry/settings. Missing files produce an Indonesian message.
+- Manual Play only: no automatic launch on startup or when returning from other apps. Settings exposes the existing library. Missing files produce an Indonesian message.
 - Existing game profile settings are preserved.
 
 Prepare game on Windows (use a NEW output folder outside the original game):
@@ -26,3 +26,5 @@ Build prerequisites and blockers:
 - Existing StikDebug support requires its custom Madeira script and correct signing/debug permissions. Ordinary IPA signing alone does not guarantee that debugging is available.
 
 Validation here: source diff whitespace check, plist XML parse and source inspection of the JIT gate. No Swift compilation, gameplay/performance testing, CLEO compatibility testing or IPA signing has been performed.
+
+Cloud AI instructions: [AI-CLOUD-HANDOFF.md](AI-CLOUD-HANDOFF.md).

@@ -1241,6 +1241,95 @@ struct MadeiraMetalView: UIViewRepresentable {
     func updateUIView(_ uiView: MetalBackedView, context: Context) {}
 }
 
+/// Kept in this compiled source file so the cloud build needs no project-file edits.
+private struct GTAMainMenu: View {
+    let jitReady: Bool
+    let busy: Bool
+    let message: String?
+    let enableJIT: () -> Void
+    let play: () -> Void
+    let settings: () -> Void
+    private let lime = Color(red: 0.76, green: 0.98, blue: 0.30)
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.07),
+                                    Color(red: 0.08, green: 0.16, blue: 0.14), .black],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            Circle().fill(lime.opacity(0.10)).frame(width: 300, height: 300)
+                .blur(radius: 70).offset(x: 140, y: -150).accessibilityHidden(true)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    HStack {
+                        Label("EXTREME / INDONESIA", systemImage: "gamecontroller.fill")
+                            .font(.caption2.weight(.bold)).foregroundStyle(lime)
+                        Spacer(minLength: 12)
+                        Link(destination: URL(string: "https://www.instagram.com/riskidr999/")!) {
+                            Label("@riskidr999", systemImage: "camera")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                                .padding(12).background(.white.opacity(0.08), in: Capsule())
+                        }
+                        .accessibilityLabel("Buka Instagram riskidr999")
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("LOS SANTOS. RASA INDONESIA.")
+                            .font(.caption.weight(.semibold)).tracking(2).foregroundStyle(.white.opacity(0.55))
+                        Text("GTA").font(.system(size: 70, weight: .black, design: .rounded))
+                        Text("EXTREME").font(.system(size: 48, weight: .black, design: .rounded))
+                            .foregroundStyle(lime)
+                        Text("INDONESIA").font(.title2.weight(.bold)).tracking(5)
+                        Text("by riskidr999").font(.subheadline).foregroundStyle(.white.opacity(0.65))
+                            .padding(.top, 8)
+                    }
+                    .minimumScaleFactor(0.7)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label(jitReady ? "JIT aktif · siap melanjutkan" : "Silakan enable JIT dulu",
+                              systemImage: jitReady ? "checkmark.shield.fill" : "bolt.shield")
+                            .font(.headline).foregroundStyle(jitReady ? lime : .white)
+                        Text("Aktifkan JIT melalui StikDebug, lalu tekan Mulai Game. File game harus sudah diimpor.")
+                            .font(.subheadline).foregroundStyle(.white.opacity(0.65))
+                        Button(action: enableJIT) {
+                            HStack {
+                                if busy { ProgressView().tint(lime) }
+                                Label(busy ? "Memproses…" : "Enable JIT", systemImage: "bolt.fill")
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.bordered).tint(lime).disabled(busy)
+                        Button(action: play) {
+                            HStack {
+                                Text("MULAI GAME").tracking(2)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .font(.headline).foregroundStyle(.black).padding(18)
+                            .background(lime, in: RoundedRectangle(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain).disabled(!jitReady || busy)
+                        .opacity(jitReady && !busy ? 1 : 0.4)
+                        if let message, !message.isEmpty {
+                            Text(message).font(.footnote).foregroundStyle(.white.opacity(0.8))
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(22).background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 24))
+                    Button(action: settings) {
+                        Label("Pengaturan & file game", systemImage: "slider.horizontal.3")
+                            .font(.subheadline).foregroundStyle(.white.opacity(0.75))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    Text("Launcher oleh riskidr999 · Runtime Madeira\nGTA: San Andreas oleh Rockstar Games")
+                        .font(.caption2).foregroundStyle(.white.opacity(0.4))
+                        .frame(maxWidth: .infinity).multilineTextAlignment(.center)
+                }
+                .padding(24).frame(maxWidth: 620).frame(maxWidth: .infinity)
+            }
+        }
+        .foregroundStyle(.white).preferredColorScheme(.dark)
+    }
+}
+
 struct ContentView: View {
     /// iOS 26 and later blur content under the navigation bar themselves.
     private static var systemScrollEdge: Bool {
@@ -1265,7 +1354,10 @@ struct ContentView: View {
     @ObservedObject private var library = LibraryModel.shared
     /// "Use New Interface" (actionButtons) applies at the next start.
     @State private var showFrontendRestart = false
-    @State private var gtaAutoLaunchAttempted = false
+    @State private var showGTALibrary = false
+    private var dedicatedGTA: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "GTADedicatedMode") as? Bool == true
+    }
 
     enum JITStatus {
         case unknown
@@ -1288,6 +1380,14 @@ struct ContentView: View {
                 if library.enabled && library.current != nil {
                     sessionBody
                         .navigationBarHidden(true)
+                } else if dedicatedGTA && !showGTALibrary {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        GTAMainMenu(jitReady: StikJITHelper.ready,
+                                    busy: jitCoordinator.busy || library.launching,
+                                    message: library.error ?? jitCoordinator.error ?? jitCoordinator.status,
+                                    enableJIT: { library.error = nil; enableJIT() }, play: launchDedicatedGTA,
+                                    settings: { showGTALibrary = true })
+                    }
                 } else if library.enabled {
                     LibraryView(play: launchLibraryEntry, enableJIT: enableJIT,
                                 startDock: { startDock($0, compactPool: $1) })
@@ -1295,7 +1395,14 @@ struct ContentView: View {
                     developerBody
                 }
             }
-            .navigationTitle("Madeira")
+            .navigationTitle(dedicatedGTA ? "GTA Extreme ID" : "Madeira")
+            .toolbar {
+                if dedicatedGTA && showGTALibrary && library.current == nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Menu GTA") { showGTALibrary = false }
+                    }
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.regularMaterial, for: .navigationBar)
             // The library keeps a material bar only before iOS 26. From iOS 26 the
@@ -1342,6 +1449,7 @@ struct ContentView: View {
             } message: { Text(library.cloudNotice?.message ?? "") }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 library.refreshFlag()
+                if dedicatedGTA { library.enabled = true }
                 if library.enabled && library.current == nil { MetalHostView.shared.isHidden = true }
             }
             .onAppear {
@@ -1358,7 +1466,7 @@ struct ContentView: View {
                 // madeira-bcd: the Dock's Reset sets the VC++ markers back to a new prefix's
                 // values, read from the bundled prefix template (DockReset.swift).
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
-                DispatchQueue.main.async { launchDedicatedGTA() }
+                if dedicatedGTA { library.enabled = true }
             }
             .onReceive(NotificationCenter.default.publisher(for: SteamSignIn.didChange)) { _ in
                 if !SteamSignIn.isSignedIn { MadeiraDock.cleanup() }
@@ -2513,16 +2621,20 @@ struct ContentView: View {
         library.error = "This shortcut's game is not in the library. Add it to the library, then use the shortcut again."
     }
 
-    /// Play in the library (Library.swift): checks that a session can start,
-    /// applies the entry's launch profile and runs the same full sequence as the
-    /// developer interface's buttons.
-    /// A dedicated build still uses Madeira's existing validation and JIT gate.
-    /// Try only once per process: failed JIT or game exits must not cause a loop.
+    /// Explicit Play only; never launch from onAppear or when returning from Instagram.
+    /// Recheck readiness at the moment of launch, independently of the button state.
     private func launchDedicatedGTA() {
-        guard Bundle.main.object(forInfoDictionaryKey: "GTADedicatedMode") as? Bool == true,
-              !gtaAutoLaunchAttempted, library.enabled,
-              library.current == nil, LibraryModel.sessionsThisRun == 0 else { return }
-        gtaAutoLaunchAttempted = true
+        guard dedicatedGTA, library.enabled, !jitCoordinator.busy,
+              library.current == nil else { return }
+        guard LibraryModel.sessionsThisRun == 0 else {
+            library.restartNotice = LibraryModel.restartMessage
+            return
+        }
+        guard StikJITHelper.ready else {
+            library.error = "Silakan enable JIT dulu melalui tombol Enable JIT."
+            return
+        }
+        library.error = nil
         let relative = "Games/GTAExtremeIndonesia/gta_sa.exe"
         do { _ = try LibraryModel.executable(relative) }
         catch {
